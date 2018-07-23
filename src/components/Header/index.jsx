@@ -6,18 +6,25 @@ const styles = {
   header: {
     backgroundColor: "#63bc46",
     color: "#ffffff",
-    padding: "24px",
-    marginBottom: "32px"
+    height: "50px",
+    float: "left",
+    width: "100%",
+    marginBottom: "20px"
   },
   title: {
-    fontSize: "1.5em"
+   position: "relative",
+   top: "18px",
+   left: "10px",
+   float: "left",
+   color: "white"
   }
 };
 
 const Header = ({ classes, title }) => (
-  <header className={classes.header}>
-    <h1 className={classes.title}>{title}</h1>
-  </header>
+  <div className={classes.header}>
+	<img style={{float: "left", marginLeft: "10px"}} src='https://i.imgur.com/WJeYlHt.png' height="50px" weight="50px" />
+	<p className={classes.title}>{title}</p>
+  </div>
 );
 
 Header.propTypes = {

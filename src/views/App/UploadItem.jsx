@@ -1,10 +1,17 @@
 import React, {Component} from "react";
 import injectSheet from "react-jss";
-import { Button, Form, FormGroup, Label, Input } from "reactstrap";
-import ipfsConnection from "./../../utils/ipfsConnection.js";
+import { Button, Form, FormGroup, Label, Input, Dropdown, DropdownToggle, DropdownMenu, DropdownItem } from "reactstrap";
+import {ipfsConnection} from "./../../utils/ipfsConnection.js";
 import { react } from "@nosplatform/api-functions";
 const { injectNOS, nosProps } = react.default;
+import { withRouter } from 'react-router-dom';
 let uuid = require('react-native-uuid');
+const scriptHash = '2b108cf8a0bde49c31365697b985128b45cce3cf';
+const key = "bd65600d-8669-4903-8a14-af88203add38";
+const getStorage = { scriptHash, key };
+const operation = "UpdateProductListHash";
+import { toast } from 'react-toastify';
+import { BounceLoader } from 'react-spinners';
 
 const styles = {
   "@import": "https://fonts.googleapis.com/css?family=Source+Sans+Pro",
@@ -43,103 +50,243 @@ class UploadItem extends Component {
     this.onSubmitButtonClick = this.onSubmitButtonClick.bind(this);
     this.captureFile = this.captureFile.bind(this);
     this.saveFileToIpfs = this.saveFileToIpfs.bind(this);
+    this.updateProdListAndStoreHash = this.updateProdListAndStoreHash.bind(this);
+    this.toggleCategory = this.toggleCategory.bind(this);
+    this.handleContactNumberChange = this.handleContactNumberChange.bind(this);
+    this.select =  this.select.bind(this);
+    this.history = props.history;
+    this.updateProdList = props.updateProdList;
     this.state ={
-      name: '',
-      desc: '',
-      price: '',
-      pickLocation: '',
-      images: [],
-      address: props.userAddress,
-      id: uuid.v4(),
-      listedOn: new Date().toLocaleString()
+      product : {
+        name: '',
+        desc: '',
+        price: '',
+        pickLocation: '',
+        images: [],
+        address: props.userAddress,
+        id: uuid.v4(),
+        listedOn: new Date().toLocaleString(),
+        isSold: false,
+        contactNumber: '',
+        category: 'Category'
+      },
+      dropdownOpen: false,
+      loading: false,
+      loadingMsg: ''
     }
   }
 
-  onSubmitButtonClick() {
-    const reader = new FileReader();
-    const file = document.getElementById("file").files[0];
-    //reader.onloadend = () => this.saveFileToIpfs(reader);
-    //reader.readAsArrayBuffer(file);
-    ipfsConnection.add(new Buffer(JSON.stringify(this.state)), function (err, res){
-      if(err || !res) return console.error("ipfs add error", err, res);
 
-      res.forEach(function(file) {
-        console.log('successfully stored' + file.hash);
+
+  toggleCategory() {
+    this.setState(prevState => ({
+      dropdownOpen: !prevState.dropdownOpen
+    }));
+  }
+
+  select(event) {
+    let cat = event.target.innerText;
+    let product = {...this.state.product};
+    product.category = cat;
+    this.setState({product});
+  }
+
+  onSubmitButtonClick(nos) {
+    let self = this;
+    self.setState({loading: true, loadingMsg: 'Saving Product'});
+    nos.getStorage(getStorage).then( async (dataHash) => {
+      ipfsConnection.get(dataHash, function(err, res){
+      if(err || !res) return console.error("ipfs get error", err, res);
+        res.forEach((file) => {
+          let existingProducts = JSON.parse(file.content.toString('utf8'));
+          let prodinfo = self.state['product'];
+          existingProducts.push(prodinfo);
+          self.updateProdListAndStoreHash(existingProducts, nos, self);
+        });
       });
+    }).catch((err) => {
+      let existingProducts = [];
+      let prodinfo = self.state['product'];
+      existingProducts.push(prodinfo);
+      self.updateProdListAndStoreHash(existingProducts, nos, self);
     });
   }
 
-  captureFile(event) {
-   let index;
-   const reader = new FileReader();
-   const file = event.target.files[0];
-   reader.readAsBinaryString(file);
- }
+  updateProdListAndStoreHash(products, nos, self) {
+  ipfsConnection.add(new Buffer(JSON.stringify(products)), function (err, res){
+      		if(err || !res) return console.error("ipfs add error", err, res);      
+		res.forEach(function(file) {
+		    const args = [];
+        args.push('' + file.hash);
+        
+        self.setState({loading: false, loadingMsg: ''});
+		    nos.invoke({scriptHash, operation, args})
+            		.then(txid => {
+                  toast.info('Product listed successfully', {
+                    position: "top-right",
+                    autoClose: 3000,
+                    hideProgressBar: true,
+                    closeOnClick: true,
+                    pauseOnHover: false,
+                    draggable: false
+                  });
+                  self.updateProdList(products);              
+                  self.history.push('/');
+                })
+            		.catch(err => console.log(`Error: ${err.message}`));
+      		});
+    	});
+  }
 
- saveFileToIpfs(reader) {
-   let ipfsId;
-   let allImages;
-   const buffer = Buffer.from(reader.result);
-   /*console.log("buffer");
-   ipfsConnection.add(buffer, { progress: (prog) => console.log(`received: ${prog}`) })
-     .then((response) => {
-       console.log(response);
-       ipfsId = response[0].hash;
-       allImages = this.state.images.concat(ipfsId);
-       this.setState({images: allImages});
-     }).catch((err) => {
-       console.error(err)
-     });*/
- }
+ captureFile (event) {
+    let files = event.target.files;
+    for (var i = 0, f; f = files[i]; i++) {
+    	const file = files[i];
+    	let reader = new window.FileReader();
+    	let self = this;
+    	reader.onloadend = () => self.saveFileToIpfs(reader);
+    	reader.readAsArrayBuffer(file);
+    }
+  }
 
-
+  saveFileToIpfs (reader) {
+    this.setState({loading: true, loadingMsg: 'Uploading Files'});
+    let ipfsId;
+    const buffer = Buffer.from(reader.result);
+    let self = this;
+    ipfsConnection.add(buffer)
+      .then((response) => {
+        self.setState({loading: false, loadingMsg: ''});
+        ipfsId = response[0].hash;
+        let imageHashes  = self.state.product.images;
+        imageHashes =  imageHashes.concat(ipfsId);
+        let product = {...self.state.product};
+        product.images = imageHashes;
+        self.setState({product});
+      }).catch((err) => {
+        console.error(err);
+      })
+  }
 
   handleNameChange(event) {
-     this.setState({name: event.target.value});
+    let product = {...this.state.product};
+    product.name = event.target.value;
+    this.setState({product});
   }
 
   handleDescChange(event) {
-     this.setState({desc: event.target.value});
+    let product = {...this.state.product};
+    product.desc = event.target.value;
+    this.setState({product});
   }
 
   handlePriceChange(event) {
-     this.setState({price: event.target.value});
+    let product = {...this.state.product};
+    product.price = event.target.value;
+    this.setState({product});
   }
 
   handleAddressChange(event) {
-     this.setState({pickLocation: event.target.value});
+    let product = {...this.state.product};
+    product.pickLocation = event.target.value;
+    this.setState({product});
+  }
+
+  handleContactNumberChange(event) {
+    let product = {...this.state.product};
+    product.contactNumber = event.target.value;
+    this.setState({product});
   }
 
   render() {
-     const { classes } = this.props;
+     const { classes, nos } = this.props;
      return (
         <div className={classes.CenterDiv}>
+        <div className='sweet-loading' style={{position: "absolute", top: "50%", right: "50%", backgroundColor: '#f7f7f7', fontSize: "15px", fontWeight: "bold"}}>
+          <center><BounceLoader
+          color={'#63bc46'} 
+          loading={this.state.loading} 
+          /></center>
+	  <div>{this.state.loadingMsg}</div>
+          </div>
             <Form>
                 <FormGroup>
                   <Label for="name">Product Name</Label>
-                  <Input type="email" name="productName" id="name" value={this.state.name} onChange={this.handleNameChange}/>
+                  <Input type="email" name="productName" id="name" value={this.state.product.name} onChange={this.handleNameChange}/>
+                </FormGroup>
+                <FormGroup>
+                  <Label for="name">Product Category</Label>
+                  <Dropdown direction="right" isOpen={this.state.dropdownOpen} toggle={this.toggleCategory}>
+                    <DropdownToggle caret>
+                    {this.state.product.category}
+                    </DropdownToggle>
+                    <DropdownMenu
+                      modifiers={{
+                        setMaxHeight: {
+                          enabled: true,
+                          order: 890,
+                          fn: (data) => {
+                            return {
+                              ...data,
+                              styles: {
+                                ...data.styles,
+                                overflow: 'auto',
+                                maxHeight: 200,
+                              },
+                            };
+                          },
+                        },
+                      }}
+                    >
+                      <DropdownItem onClick={this.select}>Appliances</DropdownItem>
+                      <DropdownItem onClick={this.select}>Baby & kids</DropdownItem>
+                      <DropdownItem onClick={this.select}>Bags & luggage</DropdownItem>
+                      <DropdownItem onClick={this.select}>Bicycles</DropdownItem>
+                      <DropdownItem onClick={this.select}>Books, films & music</DropdownItem>
+                      <DropdownItem onClick={this.select}>Car parts</DropdownItem>
+                      <DropdownItem onClick={this.select}>Cars, vans & motorcycles</DropdownItem>
+                      <DropdownItem onClick={this.select}>Clothing & shoes - men</DropdownItem>
+                      <DropdownItem onClick={this.select}>Clothing & shoes - women</DropdownItem>
+                      <DropdownItem onClick={this.select}>Electronics & computers</DropdownItem>
+                      <DropdownItem onClick={this.select}>Furniture</DropdownItem>
+                      <DropdownItem onClick={this.select}>Health & beauty</DropdownItem>
+                      <DropdownItem onClick={this.select}>Household</DropdownItem>
+                      <DropdownItem onClick={this.select}>Jewellery & accessories</DropdownItem>
+                      <DropdownItem onClick={this.select}>Mobile Phones</DropdownItem>
+                      <DropdownItem onClick={this.select}>Pet supplies</DropdownItem>
+                      <DropdownItem onClick={this.select}>Property for sale</DropdownItem>
+                      <DropdownItem onClick={this.select}>Property for rent</DropdownItem>
+                      <DropdownItem onClick={this.select}>Sport & outdoors</DropdownItem>
+                    </DropdownMenu>
+                  </Dropdown>
                 </FormGroup>
                 <FormGroup>
                   <Label for="price">Price in Neo</Label>
-                  <Input type="number" name="price" id="price" value={this.state.price} onChange={this.handlePriceChange}/>
+                  <Input type="number" name="price" id="price" value={this.state.product.price} onChange={this.handlePriceChange}/>
                 </FormGroup>
                 <FormGroup>
                   <Label for="description">Product Description</Label>
-                  <Input type="textarea" name="description" id="description" value={this.state.desc} onChange={this.handleDescChange}/>
+                  <Input type="textarea" name="description" id="description" value={this.state.product.desc} onChange={this.handleDescChange}/>
                 </FormGroup>
                 <FormGroup>
                   <Label for="address">Pick Up Location</Label>
-                  <Input type="textarea" name="address" id="address" value={this.state.pickLocation} onChange={this.handleAddressChange}/>
+                  <Input type="textarea" name="address" id="address" value={this.state.product.pickLocation} onChange={this.handleAddressChange}/>
+		            </FormGroup>
+		            <FormGroup>
+                  <Label for="phoneNumber">Contact Number</Label>
+                  <Input type="text" name="phoneNumber" id="phoneNumber" value={this.state.product.contactNumber} onChange={this.handleContactNumberChange}/>
                 </FormGroup>
                 <FormGroup>
-                 <Label for="file">Upload item photos</Label>
-                 <Input type="file" name="file" id="file" multiple onChange={this.captureFile}/>
-               </FormGroup>
-                <Button color="success" onClick={() => this.onSubmitButtonClick()} >Submit</Button>
+                  <Label for="photos">Item photos </Label>
+		              <input type="file" onChange={this.captureFile} multiple/>
+                </FormGroup>
+
+                <Button color="success" disabled= {this.state.loading} onClick={() => this.onSubmitButtonClick(nos)} >Submit</Button>{' '}
+                <Button color="success" onClick={() => this.history.push('/')} >Cancel</Button>{' '}
           </Form>
       </div>
       );
   }
 }
 
-export default injectNOS(injectSheet(styles)(UploadItem));
+export default withRouter(injectNOS(injectSheet(styles)(UploadItem)));

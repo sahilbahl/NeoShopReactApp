@@ -1,0 +1,36 @@
+import React from "react";
+import injectSheet from "react-jss";
+import PropTypes from "prop-types";
+import { withRouter } from 'react-router-dom';
+
+const styles = {
+  header: {
+    backgroundColor: "#63bc46",
+    color: "#ffffff",
+    height: "50px",
+    float: "left",
+    width: "100%",
+    marginBottom: "20px"
+  },
+  title: {
+   position: "relative",
+   top: "18px",
+   left: "10px",
+   float: "left",
+   color: "white"
+  }
+};
+
+const Header = ({ classes, title }) => (
+  <div className={classes.header}>
+	<img style={{float: "left", marginLeft: "10px"}} src='https://i.imgur.com/WJeYlHt.png' height="50px" weight="50px" />
+	<p className={classes.title}>{title}</p>
+  </div>
+);
+
+Header.propTypes = {
+  classes: PropTypes.object.isRequired,
+  title: PropTypes.string.isRequired
+};
+
+export default injectSheet(styles)(Header);

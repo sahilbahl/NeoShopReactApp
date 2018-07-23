@@ -1,0 +1,133 @@
+import React, {Component} from "react";
+import { react } from "@nosplatform/api-functions";
+import injectSheet from "react-jss";
+import "react-image-gallery/styles/css/image-gallery.css";
+const { injectNOS, nosProps } = react.default;
+const scriptHash = '2b108cf8a0bde49c31365697b985128b45cce3cf';
+const key = "bd65600d-8669-4903-8a14-af88203add38";
+import ImageGallery from 'react-image-gallery';
+const DEFAULT_IMAGE = 'https://i.imgur.com/PdkNg7F.jpg';
+import { ipfsConnection, ipfsFileEndpoint } from "./../../utils/ipfsConnection.js";
+import { confirmAlert } from 'react-confirm-alert';
+import 'react-confirm-alert/src/react-confirm-alert.css';
+import { toast } from 'react-toastify';
+import { withRouter } from 'react-router-dom';
+const getStorage = { scriptHash, key };
+const operation = "UpdateProductListHash";
+import { ListGroup, ListGroupItem, ListGroupItemText, Button } from 'reactstrap';
+import { BrowserRouter as Router, Link, Route } from "react-router-dom";
+import { BounceLoader } from 'react-spinners';
+const styles = {
+  CenterDiv: {
+    width: "50%",
+    display: "block",
+    marginLeft: "auto",
+    marginRight: "auto"
+  }
+};
+const IMAGES_SIZE = '80vw';
+class MyListings extends Component {
+  constructor(props) {
+    super(props);
+    this.history = props.history;
+    this.state = {
+      products: props.products,
+      userAddress: props.userAddress,
+      myProducts: props.products.filter(function(prod){
+         return (prod.address == props.userAddress && !prod.isSold);
+      }),
+      loading: false,
+      loadingMsg: ''
+    };
+    this.onDeleteButtonClick = this.onDeleteButtonClick.bind(this);
+    this.deleteProd = this.deleteProd.bind(this);
+    this.updateProdList = props.updateProdList;
+  }
+
+  onDeleteButtonClick(prodId, nos) {
+  let self = this;
+  	confirmAlert({
+       	  title: 'Delete Listing',
+          message: 'Confirm deletion of product listing',
+       	  buttons: [
+           {
+             label: 'Yes',
+             onClick: () => self.deleteProd(prodId, nos, self)
+           },
+           {
+             label: 'Cancel'
+           }
+       ]});
+  }
+
+  deleteProd(prodId, nos, self) {
+    self.setState({loading: true, loadingMsg: 'Deleting Product'});
+    let prodIndex = self.state.products.findIndex(product => product.id == prodId);
+    let prods = self.state.products;
+    prods.splice(prodIndex, 1);
+    let myProds = prods.filter(function(prod){
+         return (prod.address == self.state.userAddress && !prod.isSold);
+        });
+	ipfsConnection.add(new Buffer(JSON.stringify(prods)), function (err, res){
+      		if(err || !res) return console.error("ipfs add error", err, res);      
+		res.forEach(function(file) {
+		    const args = [];
+        args.push('' + file.hash);
+        self.setState({loading: false, loadingMsg: ''});
+        nos.invoke({scriptHash, operation, args})
+            		.then(txid => {
+                  toast.info('Product listing deleted', {
+                    position: "top-right",
+                    autoClose: 3000,
+                    hideProgressBar: true,
+                    closeOnClick: true,
+                    pauseOnHover: false,
+                    draggable: false
+                  });
+                  self.updateProdList(prods);
+                  self.setState({products: prods, myProducts: myProds});
+                })
+            	  .catch(err => console.log(`Error: ${err.message}`));
+      		});
+    	});
+  }
+
+  render() {
+    const images = [];
+    const { classes , nos } = this.props;
+    let self = this;
+    return (
+      <div className={classes.CenterDiv}>
+	<div style={{position: "relative", top: "70px"}}>
+		<center><h1>Your Product Listings</h1></center>
+		{this.state.myProducts.map(function(product, index){
+		  if (product) {		
+			return ( 
+				<ListGroupItem>
+					<ListGroupItemText><b>Product Name</b>: {product.name}</ListGroupItemText>
+					<ListGroupItemText><b>Product Desc</b>: {product.desc}</ListGroupItemText>
+					<ListGroupItemText><b>Product Price</b>: {product.price} Neo</ListGroupItemText>
+					<ListGroupItemText>
+						<Button color="success" onClick={() => self.onDeleteButtonClick(product.id, nos)}>Delete Listing</Button>{' '}
+						 <Link to={'../editListing/' + product.id}><Button color="success">Edit Listing</Button>{' '}</Link>
+					</ListGroupItemText>
+				</ListGroupItem> )
+                  }
+               })}
+    <div className='sweet-loading' style={{position: "absolute", top: "50%", right: "50%", backgroundColor: '#f7f7f7', fontSize: "15px", fontWeight: "bold"}}>
+          <center><BounceLoader
+          color={'#63bc46'} 
+          loading={this.state.loading} 
+          /></center>
+	  <div>{this.state.loadingMsg}</div>
+          </div>
+		<div style={{marginTop: "10px"}}>
+		    <center><Button color="success" onClick={() => this.history.push('/')} >HOME</Button>{' '}</center>
+		</div>		
+	</div>
+      </div>  
+    );
+  }
+}
+
+export default withRouter(injectNOS(injectSheet(styles)(MyListings)));
