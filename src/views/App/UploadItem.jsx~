@@ -10,7 +10,7 @@ const scriptHash = '2b108cf8a0bde49c31365697b985128b45cce3cf';
 const key = "bd65600d-8669-4903-8a14-af88203add38";
 const getStorage = { scriptHash, key };
 const operation = "UpdateProductListHash";
-import { toast } from 'react-toastify';
+import { ToastStore } from 'react-toasts';
 import { BounceLoader } from 'react-spinners';
 
 const styles = {
@@ -122,14 +122,7 @@ class UploadItem extends Component {
         self.setState({loading: false, loadingMsg: ''});
 		    nos.invoke({scriptHash, operation, args})
             		.then(txid => {
-                  toast.info('Product listed successfully', {
-                    position: "top-right",
-                    autoClose: 3000,
-                    hideProgressBar: true,
-                    closeOnClick: true,
-                    pauseOnHover: false,
-                    draggable: false
-                  });
+                  ToastStore.info('Product listed successfully');
                   self.updateProdList(products);              
                   self.history.push('/');
                 })

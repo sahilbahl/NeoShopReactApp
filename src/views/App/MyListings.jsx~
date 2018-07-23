@@ -10,7 +10,7 @@ const DEFAULT_IMAGE = 'https://i.imgur.com/PdkNg7F.jpg';
 import { ipfsConnection, ipfsFileEndpoint } from "./../../utils/ipfsConnection.js";
 import { confirmAlert } from 'react-confirm-alert';
 import 'react-confirm-alert/src/react-confirm-alert.css';
-import { toast } from 'react-toastify';
+import { ToastStore } from 'react-toasts';
 import { withRouter } from 'react-router-dom';
 const getStorage = { scriptHash, key };
 const operation = "UpdateProductListHash";
@@ -66,24 +66,17 @@ class MyListings extends Component {
     let prods = self.state.products;
     prods.splice(prodIndex, 1);
     let myProds = prods.filter(function(prod){
-         return (prod.address == self.state.userAddress);
+         return (prod.address == self.state.userAddress && !prod.isSold);
         });
 	ipfsConnection.add(new Buffer(JSON.stringify(prods)), function (err, res){
       		if(err || !res) return console.error("ipfs add error", err, res);      
 		res.forEach(function(file) {
 		    const args = [];
         args.push('' + file.hash);
-        self.setState({loading: false});
+        self.setState({loading: false, loadingMsg: ''});
         nos.invoke({scriptHash, operation, args})
             		.then(txid => {
-                  toast.info('Product listing deleted', {
-                    position: "top-right",
-                    autoClose: 3000,
-                    hideProgressBar: true,
-                    closeOnClick: true,
-                    pauseOnHover: false,
-                    draggable: false
-                  });
+                  ToastStore.info('Product listing deleted');
                   self.updateProdList(prods);
                   self.setState({products: prods, myProducts: myProds});
                 })

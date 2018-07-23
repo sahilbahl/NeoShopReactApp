@@ -10,7 +10,7 @@ const scriptHash = '2b108cf8a0bde49c31365697b985128b45cce3cf';
 const key = "bd65600d-8669-4903-8a14-af88203add38";
 const getStorage = { scriptHash, key };
 const operation = "UpdateProductListHash";
-import { toast } from 'react-toastify';
+import { ToastStore } from 'react-toasts';
 import { BounceLoader } from 'react-spinners';
 
 const styles = {
@@ -104,14 +104,7 @@ class EditItem extends Component {
 		    nos.invoke({scriptHash, operation, args})
             		.then(txid => {
                   console.log(txid);
-                  toast.info('Product updated', {
-                    position: "top-right",
-                    autoClose: 3000,
-                    hideProgressBar: true,
-                    closeOnClick: true,
-                    pauseOnHover: false,
-                    draggable: false
-                  });
+                  ToastStore.success('Product updated');
                   self.updateProdList(products);
                   self.history.push('/');
                 })

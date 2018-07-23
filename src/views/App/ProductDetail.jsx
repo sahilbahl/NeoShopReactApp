@@ -11,7 +11,7 @@ const DEFAULT_IMAGE = 'https://i.imgur.com/PdkNg7F.jpg';
 import { ipfsConnection, ipfsFileEndpoint } from "./../../utils/ipfsConnection.js";
 import { confirmAlert } from 'react-confirm-alert';
 import 'react-confirm-alert/src/react-confirm-alert.css';
-import { toast } from 'react-toastify';
+import { ToastStore } from 'react-toasts';
 import { withRouter } from 'react-router-dom';
 const operation = "UpdateProductListHash";
 import { BounceLoader } from 'react-spinners';
@@ -124,14 +124,7 @@ class ProductDetail extends Component {
         self.updateProductList(txid, nos, self);
       })
       .catch((err) => {
-        toast.error('Purchase Failed', {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: true,
-          closeOnClick: true,
-          pauseOnHover: false,
-          draggable: false
-        });
+        ToastStore.error('Purchase Failed');
         self.history.push('/');
       });
   }
@@ -153,14 +146,7 @@ class ProductDetail extends Component {
 		    nos.invoke({scriptHash, operation, args})
             		.then(txid => {
 		  self.setState({loading: false, loadingMsg: ''});
-                  toast.info('Product purchase Success', {
-                    position: "top-right",
-                    autoClose: 3000,
-                    hideProgressBar: true,
-                    closeOnClick: true,
-                    pauseOnHover: false,
-                    draggable: false
-                  });
+                  ToastStore.success('Product purchase Success');
                   self.updateProdList(prods);
 		              self.history.push('/');
                 })

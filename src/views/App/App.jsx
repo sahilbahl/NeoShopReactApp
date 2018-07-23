@@ -11,8 +11,7 @@ import EditItem from "./EditItem";
 import { react } from "@nosplatform/api-functions";
 const { injectNOS, nosProps } = react.default;
 import {ipfsConnection, ipfsFileEndpoint} from "./../../utils/ipfsConnection.js";
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, ToastStore } from 'react-toasts';
 import axios from 'axios';
 
 const DEFAULT_IMGE = 'https://i.imgur.com/PdkNg7F.jpg';
@@ -114,15 +113,8 @@ class App extends Component {
         <Router>
             <div>
                 <ToastContainer
-                  position="top-right"
-                  autoClose={5000}
-                  hideProgressBar
-                  newestOnTop={false}
-                  closeOnClick
-                  rtl={false}
-                  pauseOnVisibilityChange
-                  draggable
-                  pauseOnHover={false}
+                  position={ToastContainer.POSITION.BOTTOM_RIGHT}
+		  store={ToastStore}
                 />
                 <div className={classes.App}>
                   <Header title="NeoShop: Buy and sell using Neo Tokens" />
